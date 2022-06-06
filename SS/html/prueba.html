@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<link rel="stylesheet" type="text/css" href="https://bootswatch.com/4/united/bootstrap.css">
+	<meta charset="utf-8">
+	<title>Formulario
+	</title>
+</head>
+<body>
+	<font face="Helvetica">
+	<body bgcolor="blue">
+	<br><br><br>
+	<h1 text align=center>Lista de alumnos</h1><br>
+	<h3 text align="justify">Agregar: </h3>
+    
+	<div class="col-3">
+	<div class="form-group">
+  <label class="col-form-label" for="inputDefault">Nombre</label>
+  <input type="text" class="form-control" placeholder="Nombre" id="nombre">
+</div>
+<div class="form-group">
+  <label class="col-form-label" for="inputDefault">Apellido</label>
+  <input type="text" class="form-control" placeholder="Apellido" id="apellido">
+</div> 
+<div class="form-group">
+  <label class="col-form-label" for="inputDefault">Numero de cuenta</label>
+  <input type="text" class="form-control" placeholder="Numero de cuenta" id="numerocuenta">
+</div>
+<button onclick="values();">ENVIAR</button> <!--añade un botón a la pagina-->
+
+<br>
+
+<br>
+<h3 text align="justify">Alumnos agregados</h3>
+<br>
+<p id="inscritos"> </p>
+<button   type="buton"class="btn btn-secondary" onclick="update();">Mostrar</button>
+
+<script>
+
+	function values(){
+	var variable= document.getElementById("nombre").value;
+	var variable2= document.getElementById("apellido").value;
+	var variable3= document.getElementById("numerocuenta").value;
+    
+    google.script.run.insertar(variable,variable2,variable3);
+
+	// alert(variable); 
+    
+    // alert sirve para poner un anuncio en la pagina
+}
+
+
+function escribe(valor){
+document.getElementById("inscritos").innerHTML=valor;
+
+}
+function update(){
+google.script.run.withSuccessHandler(escribe).leer();
+}
+</script>
+</div>
+</body>
+</html>

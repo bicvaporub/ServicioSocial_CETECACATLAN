@@ -1,0 +1,261 @@
+function onOpen() {
+  var ui = SpreadsheetApp.getUi();
+    ui.createMenu('✌ Menú')
+    .addSubMenu(ui.createMenu("✔ Parcialidades")
+      .addItem('Obtener Doc', 'obtDoc')
+      .addItem('Cargar Datos', 'datos')
+      .addItem('Enviar', 'send'))
+    .addSeparator()
+    .addSubMenu(ui.createMenu("❌ Primer Instructivo")
+      .addItem('Obtener Doc', 'oobtDoc2')
+      .addItem('Cargar Datos', 'ddatos2')
+      .addItem('Enviar', 'ssend2'))
+    .addToUi();
+
+
+}
+
+function fechaCompleta() {
+  var hoy = new Date()
+  hoy.setDate(hoy.getDate() + 15)
+  var mes = hoy.getMonth();
+  var dia = hoy.getDate();
+  var anio = hoy.getFullYear();
+  //hash table JS
+  const MES_ACTUAL = {
+    0: 'Enero',
+    1: 'Febrero',
+    2: 'Marzo',
+    3: 'Abril',
+    4: 'Mayo',
+    5: 'Junio',
+    6: 'Julio',
+    7: 'Agosto',
+    8: 'Septiembre',
+    9: 'Octubre',
+    10: 'Noviembre',
+    11: 'Diciembre'
+  }
+
+  var mesA = MES_ACTUAL[mes];
+  var fechaCompleta = dia + ' de ' + mesA + ' del ' + anio;
+  return fechaCompleta;
+}
+
+function getInformationPDF(sheetName, idFolderPDF, idFolderDOC) {
+  const spsArch = SpreadsheetApp.getActive().getSheetByName(sheetName);
+  var dataArch = spsArch.getDataRange().getValues();
+  var lastRowA = spsArch.getLastRow();
+  let files = DriveApp.getFolderById(idFolderPDF).getFiles(); 
+  let fileID = [], fileName = [];
+  while (files.hasNext()){
+    let file = files.next();
+    fileName.push(file.getName());
+    fileID.push(file.getId());
+  }
+  var arch = [], ids = [], k1, x;
+  for (k1 = 1; k1 < lastRowA; k1++){arch.push(dataArch[k1][1].toString())}
+  var notInFileName = fileName.filter(function(itm){ return arch.indexOf(itm) == -1; });
+  for (x of notInFileName) {ids.push(fileID[fileName.indexOf(x)])}
+  let newID = [];
+  for(h of ids){
+    var fileBlob = DriveApp.getFileById(h).getBlob();
+    var resource = {
+      title: fileBlob.getName(),
+      parents: [{'id':idFolderDOC}],
+      mimeType: fileBlob.getContentType()
+    };
+    var options = {ocr: true, supportsAllDrives: true};
+    var docFile = Drive.Files.insert(resource, fileBlob, options);
+    newID.push(docFile.id)
+  }
+  for(var js = 0; js < ids.length; js++){
+    spsArch.getRange(lastRowA+js+1, 1).setValue(lastRowA+js);
+    spsArch.getRange(lastRowA+js+1, 2).setValue(notInFileName[js]);
+    spsArch.getRange(lastRowA+js+1, 3).setValue(ids[js]);
+    spsArch.getRange(lastRowA+js+1, 4).setValue(newID[js]);
+  }
+
+}
+
+function completeTable(sheetNameA, sheetNameD, idFolderDoc){
+  const spsArch = SpreadsheetApp.getActive().getSheetByName(sheetNameA);
+  const spsDatos = SpreadsheetApp.getActive().getSheetByName(sheetNameD);
+  var lastRowA = spsArch.getLastRow();
+  var lastRowD = spsDatos.getLastRow();
+  var dataArch = spsArch.getDataRange().getValues();
+  var data = spsDatos.getDataRange().getValues();
+  var docName = [], folio = [], k, j;
+  for (k = 1; k < lastRowD; k++){folio.push(data[k][6].toString() + '.pdf')}
+  for (j = 1; j < lastRowA; j++) {docName.push(dataArch[j][1].toString());}
+  var unchosen = docName.filter(function(itm){ return folio.indexOf(itm) == -1; });
+  var ks = 1;
+  for(g of unchosen){
+    var textFinder = spsArch.createTextFinder(g);
+    var search_row = textFinder.findNext().getRow();
+    var id = dataArch[search_row-1][3];
+    var doc = DocumentApp.openById(id);
+    var fullName = doc.getBody().findText('NOMBRE').getElement().asText().getText().split(':')[1];
+    var course = doc.getBody().findText('CONCEPTO').getElement().asText().getText().split(':')[1];
+    var studentType = doc.getBody().findText('CUOTA').getElement().asText().getText().split(':')[1];
+    var payment = doc.getBody().findText('/100').getElement().asText().getText().split(':')[1].split('*')[0];
+    var email = doc.getBody().findText('@').getElement().asText().getText();
+
+    spsDatos.getRange(lastRowD+ks, 1).setValue(lastRowD+ks-1);
+    spsDatos.getRange(lastRowD+ks, 2).setValue(fullName);
+    spsDatos.getRange(lastRowD+ks, 3).setValue(course);
+    spsDatos.getRange(lastRowD+ks, 4).setValue(studentType);
+    spsDatos.getRange(lastRowD+ks, 5).setValue(payment);
+    spsDatos.getRange(lastRowD+ks, 6).setValue(email);
+    spsDatos.getRange(lastRowD+ks, 7).setValue(g.split('.')[0])
+    ks+=1;
+  }
+  var uselessfiles = DriveApp.getFolderById(idFolderDoc).getFiles();
+  while(uselessfiles.hasNext()) {uselessfiles.next().setTrashed(true)}
+}
+
+function email1(sheetName, htmlName, idFolderPdf){
+  const sps = SpreadsheetApp.getActive().getSheetByName(sheetName);
+  var data = sps.getDataRange().getValues();
+
+  // Agregaremos el código de las imagenes
+  var logoUnam = UrlFetchApp.fetch("https://live.staticflickr.com/65535/51391722254_a9f9229d9c_o.png").getBlob().setName("logoUnam");
+  var logoFes = UrlFetchApp.fetch("https://live.staticflickr.com/65535/51402763888_51d9d11754_o.png").getBlob().setName("logoFes");
+  var unam = UrlFetchApp.fetch("https://live.staticflickr.com/65535/51398437884_5b79d860cc_o.png").getBlob().setName("unam");
+  var firmaRodrigo = UrlFetchApp.fetch("https://live.staticflickr.com/65535/51391045461_032bcee0ae_o.jpg").getBlob().setName("firmaRodrigo");
+
+  for(var i = 1; i < data.length; i++){
+    var enviado = data[i][7];
+    var folio = data[i][6];
+    var renglonActual = 1 + i;
+    if(enviado != "enviado"){
+      var fullName = data[i][1];
+      var course = data[i][2];
+      var studentType = data[i][3];
+      var payment = data[i][4];
+      var mail = data[i][5];
+
+    
+      if(htmlName == 'PARCIALIDADES.html') {
+        var date = fechaCompleta();
+        var htmlOutput = HtmlService.createHtmlOutputFromFile(htmlName);
+        var message = htmlOutput.getContent()
+        message = message.replace("%date", date);
+        message = message.replace("%course", course);
+        message = message.replace("%fullName", fullName);
+        message = message.replace("%studentTypte", studentType);
+        message = message.replace("%payment", payment);
+
+        var idFile = DriveApp.getFolderById(idFolderPdf).getFilesByName(folio +'.pdf').next().getId();
+        var file =DriveApp.getFileById(idFile);
+        var subject = 'Instructivo de Pago  ' + course + '  ' + fullName;
+        MailApp.sendEmail({
+          to: mail, 
+          subject: subject, 
+          htmlBody: message,
+          inlineImages:
+          {
+            logoUnam2: logoUnam,
+            logoFes2: logoFes,
+            unam2: unam,
+            firmaRodrigo2: firmaRodrigo
+          }, 
+          attachments: [file.getAs(MimeType.PDF)]
+        });
+        sps.getRange(renglonActual, 8).setValue("enviado");
+      } 
+      else if(htmlName == 'PRIMER-INSTRUCTIVO.html') {
+        const spspi = SpreadsheetApp.getActive().getSheetByName('Instructivo1-Arch');
+        var datapi = spspi.getDataRange().getValues();
+        var textFinder = spspi.createTextFinder(folio + '.pdf');
+        var search_row = textFinder.findNext().getRow();
+        var id = datapi[search_row-1][3];
+        var doc = DocumentApp.openById(id);
+        var date = doc.getBody().findText('FECHA').getElement().asText().getText().split('FECHA')[1].substr(1,10);
+
+        var htmlOutput = HtmlService.createHtmlOutputFromFile(htmlName);
+        var message = htmlOutput.getContent()
+        message = message.replace("%date", date);
+        message = message.replace("%course", course);
+
+        var idFile = DriveApp.getFolderById(idFolderPdf).getFilesByName(folio +'.pdf').next().getId();
+        var file =DriveApp.getFileById(idFile);
+        var subject = 'Instructivo de Pago  ' + course + '  ' + fullName;
+        MailApp.sendEmail({
+          to: mail, 
+          subject: subject, 
+          htmlBody: message,
+          inlineImages:
+          {
+            logoUnam2: logoUnam,
+            logoFes2: logoFes,
+            unam2: unam,
+            firmaRodrigo2: firmaRodrigo
+          }, 
+          attachments: [file.getAs(MimeType.PDF)]
+        });
+        sps.getRange(renglonActual, 8).setValue("enviado");
+      }
+    }
+  }
+}
+
+function obtDoc() {
+  const sheetName = 'Parcialidades-Arch';
+  const idFolderPDF = '1UIht_77MUKtXw2RBx__qLn1f7nePLc9o';
+  const idFolderDOC = '1a2eDlhSz6ebI-bk8IslEAukF-ppz4M9H';
+  getInformationPDF(sheetName, idFolderPDF, idFolderDOC)
+}
+
+function datos() {
+  const sheetNameA = 'Parcialidades-Arch';
+  const sheetNameD = 'Parcialidades-Datos';
+  const idFolderDoc ='1a2eDlhSz6ebI-bk8IslEAukF-ppz4M9H';
+  completeTable(sheetNameA, sheetNameD, idFolderDoc)
+}
+
+function send() {
+  const sheetName = 'Parcialidades-Datos';
+  const idFolderPdf = '1UIht_77MUKtXw2RBx__qLn1f7nePLc9o';
+  const htmlName = 'PARCIALIDADES.html';
+  email(sheetName, htmlName, idFolderPdf)
+}
+
+function oobtDoc2() {
+  const sheetName = 'Instructivo1-Arch';
+  const idFolderPDF = '1zP9sK72Dr76eHgHqr3A6KhdzYA9BtMu_';
+  const idFolderDOC = '1nqiIMs9EFzSf8HYhBube4uV7RKjoPKru';
+  getInformationPDF(sheetName, idFolderPDF, idFolderDOC)
+}
+
+function ddatos2() {
+  const sheetNameA = 'Instructivo1-Arch';
+  const sheetNameD = 'Instructivo1-Datos';
+  const idFolderDoc ='1nqiIMs9EFzSf8HYhBube4uV7RKjoPKru';
+  completeTable(sheetNameA, sheetNameD, idFolderDoc)
+}
+
+function ssend2() {
+  const sheetName = 'Instructivo1-Datos';
+  const idFolderPdf = '1zP9sK72Dr76eHgHqr3A6KhdzYA9BtMu_';
+  const htmlName = 'PRIMER-INSTRUCTIVO.html';
+  email(sheetName, htmlName, idFolderPdf)
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
